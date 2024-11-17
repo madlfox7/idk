@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# Initialize only if the main MariaDB data directory doesn't exist
+if [ ! -d "/var/lib/mysql/mysql" ]; then
+
+    # Set ownership to mysql user
+    chown -R mysql:mysql /var/lib/mysql
+
+    # Initialize the MariaDB data directory
+    mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm
+
+    # Temporary SQL file to set up the database and users
+    tfile=$(mktemp)
+    if [ ! -f "$tfile" ]; then
+        echo "Failed to create temp file."
+        exit 1
+    fi
+
+    # Populate the temporary SQL file with database and user setup commands
+    cat << EOF > $tfile
+USE mysql;
+FLUSH PRIVILEGES;
+DELETE FROM mysql.user WHERE User='';
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test';
+DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT}';
+CREATE DATABASE ${DB_NAME} CHARACTER SET utf8 COLLATE utf8_general_ci;
+CREATE USER '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+    # Run the setup SQL commands
+    /usr/bin/mysqld --user=mysql --bootstrap < $tfile
+    rm -f $tfile
+
+    echo "Database initialization completed."
+else
+    echo "Database already initialized, skipping setup."
+fi
+
+# Start the main MariaDB process
+exec /usr/bin/mysqld --user=mysql --skip-log-error
+

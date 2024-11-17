@@ -1,0 +1,69 @@
+version: '3'
+
+services:
+  nginx:
+    build: requirements/nginx
+    container_name: nginx
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    restart: always
+    networks:
+      - inception
+
+  wordpress:
+    build:
+      context: requirements/wordpress
+      args:
+        PHP_VERSION: "83"
+    container_name: wordpress
+    depends_on:
+      - mariadb
+    expose:
+      - "9000"  # Expose PHP-FPM port for Nginx to connect
+    networks:
+      - inception
+    restart: always
+    volumes:
+      - wp-volume:/var/www/
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_HOST: mariadb  # Set this to the name of the MariaDB service
+
+  mariadb:
+    build:
+      context: requirements/mariadb
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+        DB_ROOT: ${DB_ROOT}
+    container_name: mariadb
+    ports:
+      - "3306:3306"
+    restart: always
+    networks:
+      - inception
+    volumes:
+      - db-volume:/var/lib/mysql
+
+volumes:
+  wp-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/wordpress
+
+  db-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/mariadb
+
+networks:
+  inception:
+    driver: bridge
+

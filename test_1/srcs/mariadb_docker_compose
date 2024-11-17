@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  mariadb:
+    build:
+      context: requirements/mariadb   # Path to the MariaDB Dockerfile
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+        DB_ROOT: ${DB_ROOT}
+    container_name: mariadb
+    ports:
+      - "3306:3306"                   # Expose MariaDB port
+    env_file:
+      - .env                          # Load environment variables from .env
+    restart: always
+
